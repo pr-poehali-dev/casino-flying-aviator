@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { User, WinRecord } from '@/components/casino/types';
 import { Header } from '@/components/casino/Header';
 import { WinsFooter } from '@/components/casino/WinsFooter';
+import { AuthDialog } from '@/components/casino/AuthDialog';
 import { 
   HomeSection, 
   SlotsSection, 
@@ -18,6 +19,7 @@ export default function Index() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeSection, setActiveSection] = useState('home');
   const [onlineCount, setOnlineCount] = useState(1247);
+  const [showAuth, setShowAuth] = useState(false);
   const [recentWins, setRecentWins] = useState<WinRecord[]>([
     { username: 'Игрок***123', game: 'Авиатор', amount: 15000, time: '2 мин назад' },
     { username: 'Lucky***777', game: 'Слот Фрукты', amount: 8500, time: '5 мин назад' },
@@ -31,32 +33,36 @@ export default function Index() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = (username: string, isAdmin?: boolean) => {
     setCurrentUser({
-      id: '1',
-      username: 'Игрок123',
+      id: isAdmin ? 'admin' : Math.random().toString(),
+      username,
       balance: 5000,
-      isAdmin: false
+      isAdmin: isAdmin || false
     });
-    toast.success('Добро пожаловать в казино!');
+
+    if (isAdmin) {
+      setActiveSection('admin');
+    }
   };
 
   const handleAdminLogin = () => {
-    setCurrentUser({
-      id: 'admin',
-      username: 'Администратор',
-      balance: 0,
-      isAdmin: true
-    });
-    setActiveSection('admin');
-    toast.success('Вход в панель администратора');
+    setShowAuth(true);
+  };
+
+  const handleBalanceChange = (amount: number) => {
+    if (currentUser) {
+      setCurrentUser({ ...currentUser, balance: currentUser.balance + amount });
+    }
   };
 
   const handleDeposit = (amount: number) => {
-    if (currentUser) {
-      setCurrentUser({ ...currentUser, balance: currentUser.balance + amount });
-      toast.success(`Баланс пополнен на ${amount} ₽`);
-    }
+    handleBalanceChange(amount);
+    toast.success(`Баланс пополнен на ${amount} ₽`);
+  };
+
+  const handleClaimBonus = (amount: number) => {
+    handleBalanceChange(amount);
   };
 
   return (
@@ -65,24 +71,67 @@ export default function Index() {
         currentUser={currentUser}
         onlineCount={onlineCount}
         activeSection={activeSection}
-        onLogin={handleLogin}
+        onLogin={() => setShowAuth(true)}
         onAdminLogin={handleAdminLogin}
         onNavigate={setActiveSection}
       />
 
       <main className="container mx-auto px-4 py-8">
         {activeSection === 'home' && <HomeSection recentWins={recentWins} onNavigate={setActiveSection} />}
-        {activeSection === 'slots' && <SlotsSection />}
-        {activeSection === 'aviator' && <AviatorSection />}
-        {activeSection === 'minecraft' && <MinecraftSection />}
-        {activeSection === 'sport' && <SportSection />}
-        {activeSection === 'bonuses' && <BonusesSection />}
+        {activeSection === 'slots' && currentUser && (
+          <SlotsSection 
+            balance={currentUser.balance} 
+            onBalanceChange={handleBalanceChange}
+          />
+        )}
+        {activeSection === 'aviator' && currentUser && (
+          <AviatorSection 
+            balance={currentUser.balance} 
+            onBalanceChange={handleBalanceChange}
+          />
+        )}
+        {activeSection === 'minecraft' && currentUser && (
+          <MinecraftSection 
+            balance={currentUser.balance} 
+            onBalanceChange={handleBalanceChange}
+          />
+        )}
+        {activeSection === 'sport' && currentUser && (
+          <SportSection 
+            balance={currentUser.balance} 
+            onBalanceChange={handleBalanceChange}
+          />
+        )}
+        {activeSection === 'bonuses' && currentUser && (
+          <BonusesSection onClaimBonus={handleClaimBonus} />
+        )}
         {activeSection === 'support' && <SupportSection />}
-        {activeSection === 'profile' && currentUser && <ProfileSection user={currentUser} onDeposit={handleDeposit} />}
+        {activeSection === 'profile' && currentUser && (
+          <ProfileSection user={currentUser} onDeposit={handleDeposit} />
+        )}
         {activeSection === 'admin' && currentUser?.isAdmin && <AdminPanel />}
+
+        {(activeSection !== 'home' && activeSection !== 'support' && !currentUser) && (
+          <div className="text-center py-20">
+            <h2 className="text-2xl font-bold gold-text mb-4">Войдите, чтобы играть</h2>
+            <button 
+              onClick={() => setShowAuth(true)}
+              className="px-8 py-3 gold-gradient text-black font-bold rounded-lg"
+            >
+              Войти или зарегистрироваться
+            </button>
+          </div>
+        )}
       </main>
 
       <WinsFooter recentWins={recentWins} />
+
+      {showAuth && (
+        <AuthDialog 
+          onClose={() => setShowAuth(false)}
+          onLogin={handleLogin}
+        />
+      )}
     </div>
   );
 }

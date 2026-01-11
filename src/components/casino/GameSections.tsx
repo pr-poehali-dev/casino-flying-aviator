@@ -5,6 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { WinRecord } from './types';
+import { SlotMachine } from './games/SlotMachine';
+import { MinesGame } from './games/MinesGame';
+import { TowerGame } from './games/TowerGame';
+import { CasesGame } from './games/CasesGame';
+import { toast } from 'sonner';
 
 export function HomeSection({ recentWins, onNavigate }: { recentWins: WinRecord[], onNavigate: (section: string) => void }) {
   return (
@@ -63,11 +68,13 @@ export function HomeSection({ recentWins, onNavigate }: { recentWins: WinRecord[
   );
 }
 
-export function SlotsSection() {
+export function SlotsSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
+  const [activeSlot, setActiveSlot] = useState<{ name: string; icon: string; symbols: string[] } | null>(null);
+
   const slots = [
-    { name: 'Фрукты', icon: '🍒', multiplier: 'x500', popularity: 98 },
-    { name: 'Рыбка', icon: '🐠', multiplier: 'x750', popularity: 95 },
-    { name: 'Собачка', icon: '🐕', multiplier: 'x1000', popularity: 92 }
+    { name: 'Фрукты', icon: '🍒', multiplier: 'x500', popularity: 98, symbols: ['🍒', '🍋', '🍊', '🍇', '🍉', '🍓'] },
+    { name: 'Рыбка', icon: '🐠', multiplier: 'x750', popularity: 95, symbols: ['🐠', '🐟', '🐡', '🦈', '🐙', '🦑'] },
+    { name: 'Собачка', icon: '🐕', multiplier: 'x1000', popularity: 92, symbols: ['🐕', '🐶', '🦴', '🎾', '🐾', '🏠'] }
   ];
 
   return (
@@ -93,28 +100,53 @@ export function SlotsSection() {
                   <div className="gold-gradient h-2 rounded-full" style={{ width: `${slot.popularity}%` }} />
                 </div>
               </div>
-              <Button className="w-full gold-gradient text-black font-bold">
+              <Button 
+                onClick={() => setActiveSlot({ name: slot.name, icon: slot.icon, symbols: slot.symbols })}
+                className="w-full gold-gradient text-black font-bold"
+              >
                 Играть
               </Button>
             </div>
           </Card>
         ))}
       </div>
+
+      {activeSlot && (
+        <SlotMachine 
+          name={activeSlot.name}
+          icon={activeSlot.icon}
+          symbols={activeSlot.symbols}
+          balance={balance}
+          onBalanceChange={onBalanceChange}
+          onClose={() => setActiveSlot(null)}
+        />
+      )}
     </div>
   );
 }
 
-export function AviatorSection() {
+export function AviatorSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
   const [multiplier, setMultiplier] = useState(1.00);
   const [isFlying, setIsFlying] = useState(false);
+  const [betAmount, setBetAmount] = useState('10');
+  const [autoExit, setAutoExit] = useState('2.00');
+  const [currentBet, setCurrentBet] = useState(0);
 
   useEffect(() => {
     if (isFlying) {
       const interval = setInterval(() => {
         setMultiplier(prev => {
           const next = prev + 0.01;
-          if (next > 10 && Math.random() > 0.7) {
+          
+          const autoExitValue = parseFloat(autoExit);
+          if (!isNaN(autoExitValue) && next >= autoExitValue) {
+            handleCashout(next);
+            return prev;
+          }
+
+          if (next > 2 && Math.random() > 0.98) {
             setIsFlying(false);
+            toast.error(`Самолёт упал на x${next.toFixed(2)}! Вы проиграли ${currentBet} ₽`);
             return 1.00;
           }
           return next;
@@ -122,7 +154,34 @@ export function AviatorSection() {
       }, 100);
       return () => clearInterval(interval);
     }
-  }, [isFlying]);
+  }, [isFlying, autoExit, currentBet]);
+
+  const startFlight = () => {
+    const bet = parseInt(betAmount);
+    if (!bet || bet <= 0) {
+      toast.error('Укажите ставку');
+      return;
+    }
+    if (bet > balance) {
+      toast.error('Недостаточно средств');
+      return;
+    }
+
+    onBalanceChange(-bet);
+    setCurrentBet(bet);
+    setMultiplier(1.00);
+    setIsFlying(true);
+    toast.success('Полёт начался!');
+  };
+
+  const handleCashout = (mult?: number) => {
+    const finalMult = mult || multiplier;
+    const winAmount = Math.floor(currentBet * finalMult);
+    onBalanceChange(winAmount);
+    setIsFlying(false);
+    setMultiplier(1.00);
+    toast.success(`Выигрыш ${winAmount} ₽ (x${finalMult.toFixed(2)})`);
+  };
 
   return (
     <div className="space-y-6 mb-32">
@@ -130,62 +189,190 @@ export function AviatorSection() {
       <Card className="bg-[#1a1a1a] border-primary/20 p-8">
         <div className="relative h-96 bg-gradient-to-b from-blue-900/20 to-transparent rounded-xl flex items-center justify-center mb-6">
           <div className="text-center">
-            <div className="text-8xl mb-4 animate-bounce">✈️</div>
+            <div className={`text-8xl mb-4 ${isFlying ? 'animate-bounce' : ''}`}>✈️</div>
             <div className="text-6xl font-bold gold-text">{multiplier.toFixed(2)}x</div>
+            {isFlying && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Возможный выигрыш: {Math.floor(currentBet * multiplier)} ₽
+              </p>
+            )}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Ставка</label>
-            <Input type="number" placeholder="100" className="bg-[#0a0a0a] border-primary/30" />
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-muted-foreground">Баланс:</span>
+            <span className="text-xl font-bold gold-text">{balance.toLocaleString()} ₽</span>
           </div>
-          <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Авто-выход</label>
-            <Input type="number" placeholder="2.00x" className="bg-[#0a0a0a] border-primary/30" />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Ставка</label>
+              <Input 
+                type="number" 
+                value={betAmount}
+                onChange={(e) => setBetAmount(e.target.value)}
+                placeholder="100" 
+                className="bg-[#0a0a0a] border-primary/30"
+                disabled={isFlying}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">Авто-выход</label>
+              <Input 
+                type="number" 
+                value={autoExit}
+                onChange={(e) => setAutoExit(e.target.value)}
+                placeholder="2.00" 
+                className="bg-[#0a0a0a] border-primary/30"
+                disabled={isFlying}
+              />
+            </div>
           </div>
+
+          {!isFlying ? (
+            <Button 
+              onClick={startFlight}
+              className="w-full gold-gradient text-black font-bold text-lg py-6"
+            >
+              Начать полёт
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => handleCashout()}
+              className="w-full gold-gradient text-black font-bold text-lg py-6"
+            >
+              Забрать {Math.floor(currentBet * multiplier)} ₽
+            </Button>
+          )}
         </div>
-        <Button 
-          onClick={() => setIsFlying(!isFlying)} 
-          className="w-full mt-4 gold-gradient text-black font-bold text-lg py-6"
-        >
-          {isFlying ? 'Забрать выигрыш' : 'Начать полёт'}
-        </Button>
       </Card>
     </div>
   );
 }
 
-export function MinecraftSection() {
+export function MinecraftSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
+  const [activeGame, setActiveGame] = useState<'mines' | 'tower' | 'cases' | null>(null);
+
   return (
     <div className="space-y-6 mb-32">
       <h2 className="text-3xl font-bold gold-text">Майнкрафт</h2>
-      <div className="grid md:grid-cols-2 gap-6">
-        {[
-          { name: 'Шахты', icon: '⛏️', desc: 'Откройте клетки и найдите алмазы' },
-          { name: 'Башня', icon: '🗼', desc: 'Поднимайтесь выше для больших призов' },
-          { name: 'Кейсы', icon: '📦', desc: 'Откройте кейсы с редкими предметами' }
-        ].map(game => (
-          <Card key={game.name} className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary transition-all cursor-pointer">
-            <div className="text-6xl mb-4">{game.icon}</div>
-            <h3 className="text-2xl font-bold mb-2">{game.name}</h3>
-            <p className="text-muted-foreground mb-4">{game.desc}</p>
-            <Button className="w-full gold-gradient text-black font-bold">Играть</Button>
-          </Card>
-        ))}
+      <div className="grid md:grid-cols-3 gap-6">
+        <Card 
+          className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary transition-all cursor-pointer"
+          onClick={() => setActiveGame('mines')}
+        >
+          <div className="text-6xl mb-4">⛏️</div>
+          <h3 className="text-2xl font-bold mb-2">Шахты</h3>
+          <p className="text-muted-foreground mb-4">Откройте клетки и найдите алмазы</p>
+          <Button className="w-full gold-gradient text-black font-bold">Играть</Button>
+        </Card>
+
+        <Card 
+          className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary transition-all cursor-pointer"
+          onClick={() => setActiveGame('tower')}
+        >
+          <div className="text-6xl mb-4">🗼</div>
+          <h3 className="text-2xl font-bold mb-2">Башня</h3>
+          <p className="text-muted-foreground mb-4">Поднимайтесь выше для больших призов</p>
+          <Button className="w-full gold-gradient text-black font-bold">Играть</Button>
+        </Card>
+
+        <Card 
+          className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary transition-all cursor-pointer"
+          onClick={() => setActiveGame('cases')}
+        >
+          <div className="text-6xl mb-4">📦</div>
+          <h3 className="text-2xl font-bold mb-2">Кейсы</h3>
+          <p className="text-muted-foreground mb-4">Откройте кейсы с редкими предметами</p>
+          <Button className="w-full gold-gradient text-black font-bold">Играть</Button>
+        </Card>
       </div>
+
+      {activeGame === 'mines' && (
+        <MinesGame 
+          balance={balance}
+          onBalanceChange={onBalanceChange}
+          onClose={() => setActiveGame(null)}
+        />
+      )}
+
+      {activeGame === 'tower' && (
+        <TowerGame 
+          balance={balance}
+          onBalanceChange={onBalanceChange}
+          onClose={() => setActiveGame(null)}
+        />
+      )}
+
+      {activeGame === 'cases' && (
+        <CasesGame 
+          balance={balance}
+          onBalanceChange={onBalanceChange}
+          onClose={() => setActiveGame(null)}
+        />
+      )}
     </div>
   );
 }
 
-export function SportSection() {
+export function SportSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
+  const [betAmount, setBetAmount] = useState('10');
+  const [activeBet, setActiveBet] = useState<{ match: number; outcome: string; odds: number } | null>(null);
+
   const matches = [
     { team1: 'Спартак', team2: 'ЦСКА', odds1: 2.1, oddsX: 3.2, odds2: 2.8, sport: '⚽' },
     { team1: 'Лейкерс', team2: 'Уориорз', odds1: 1.8, oddsX: null, odds2: 1.9, sport: '🏀' }
   ];
 
+  const placeBet = (matchIdx: number, outcome: string, odds: number) => {
+    const bet = parseInt(betAmount);
+    if (!bet || bet <= 0) {
+      toast.error('Укажите ставку');
+      return;
+    }
+    if (bet > balance) {
+      toast.error('Недостаточно средств');
+      return;
+    }
+
+    onBalanceChange(-bet);
+    setActiveBet({ match: matchIdx, outcome, odds });
+
+    setTimeout(() => {
+      const won = Math.random() > 0.5;
+      if (won) {
+        const winAmount = Math.floor(bet * odds);
+        onBalanceChange(winAmount);
+        toast.success(`Ставка сыграла! Выигрыш ${winAmount} ₽`);
+      } else {
+        toast.error('Ставка не сыграла');
+      }
+      setActiveBet(null);
+    }, 3000);
+  };
+
   return (
     <div className="space-y-6 mb-32">
       <h2 className="text-3xl font-bold gold-text">Ставки на спорт</h2>
+      
+      <Card className="bg-[#1a1a1a] border-primary/20 p-4">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-muted-foreground">Баланс:</span>
+          <span className="text-xl font-bold gold-text">{balance.toLocaleString()} ₽</span>
+        </div>
+        <div>
+          <label className="text-sm text-muted-foreground mb-2 block">Сумма ставки</label>
+          <Input 
+            type="number" 
+            value={betAmount}
+            onChange={(e) => setBetAmount(e.target.value)}
+            placeholder="100" 
+            className="bg-[#0a0a0a] border-primary/30"
+          />
+        </div>
+      </Card>
+
       <div className="space-y-4">
         {matches.map((match, idx) => (
           <Card key={idx} className="bg-[#1a1a1a] border-primary/20 p-6">
@@ -199,27 +386,45 @@ export function SportSection() {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <Button variant="outline" className="border-primary/30 hover:gold-gradient hover:text-black">
+              <Button 
+                variant="outline" 
+                className="border-primary/30 hover:gold-gradient hover:text-black"
+                onClick={() => placeBet(idx, 'П1', match.odds1)}
+                disabled={activeBet !== null}
+              >
                 <div className="text-center">
                   <div className="text-xs text-muted-foreground mb-1">П1</div>
                   <div className="font-bold">{match.odds1}</div>
                 </div>
               </Button>
               {match.oddsX && (
-                <Button variant="outline" className="border-primary/30 hover:gold-gradient hover:text-black">
+                <Button 
+                  variant="outline" 
+                  className="border-primary/30 hover:gold-gradient hover:text-black"
+                  onClick={() => placeBet(idx, 'X', match.oddsX!)}
+                  disabled={activeBet !== null}
+                >
                   <div className="text-center">
                     <div className="text-xs text-muted-foreground mb-1">X</div>
                     <div className="font-bold">{match.oddsX}</div>
                   </div>
                 </Button>
               )}
-              <Button variant="outline" className="border-primary/30 hover:gold-gradient hover:text-black">
+              <Button 
+                variant="outline" 
+                className="border-primary/30 hover:gold-gradient hover:text-black"
+                onClick={() => placeBet(idx, 'П2', match.odds2)}
+                disabled={activeBet !== null}
+              >
                 <div className="text-center">
                   <div className="text-xs text-muted-foreground mb-1">П2</div>
                   <div className="font-bold">{match.odds2}</div>
                 </div>
               </Button>
             </div>
+            {activeBet && activeBet.match === idx && (
+              <p className="text-center mt-3 text-sm gold-text animate-pulse">Ожидаем результат...</p>
+            )}
           </Card>
         ))}
       </div>
@@ -227,27 +432,46 @@ export function SportSection() {
   );
 }
 
-export function BonusesSection() {
+export function BonusesSection({ onClaimBonus }: { onClaimBonus: (amount: number) => void }) {
+  const [claimed, setClaimed] = useState<Record<string, boolean>>({});
+
+  const claimBonus = (id: string, amount: number) => {
+    if (claimed[id]) {
+      toast.error('Бонус уже получен');
+      return;
+    }
+    
+    setClaimed({ ...claimed, [id]: true });
+    onClaimBonus(amount);
+    toast.success(`Получено ${amount} ₽!`);
+  };
+
   return (
     <div className="space-y-6 mb-32">
       <h2 className="text-3xl font-bold gold-text">Бонусы</h2>
       <div className="grid md:grid-cols-2 gap-6">
         {[
-          { title: 'Приветственный бонус', amount: '+100%', desc: 'На первый депозит до 50 000 ₽', icon: 'Gift' },
-          { title: 'Кэшбэк', amount: '15%', desc: 'Еженедельный возврат проигрышей', icon: 'RefreshCw' },
-          { title: 'Фриспины', amount: '50 FS', desc: 'За регистрацию на слот месяца', icon: 'Sparkles' },
-          { title: 'VIP программа', amount: 'до 25%', desc: 'Эксклюзивные привилегии', icon: 'Crown' }
+          { id: 'welcome', title: 'Приветственный бонус', amount: 5000, desc: 'На первый депозит до 50 000 ₽', icon: 'Gift' },
+          { id: 'cashback', title: 'Кэшбэк', amount: 1000, desc: 'Еженедельный возврат проигрышей', icon: 'RefreshCw' },
+          { id: 'freespins', title: 'Фриспины', amount: 500, desc: 'За регистрацию на слот месяца', icon: 'Sparkles' },
+          { id: 'vip', title: 'VIP программа', amount: 2500, desc: 'Эксклюзивные привилегии', icon: 'Crown' }
         ].map(bonus => (
-          <Card key={bonus.title} className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary transition-all">
+          <Card key={bonus.id} className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary transition-all">
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 gold-gradient rounded-xl flex items-center justify-center flex-shrink-0">
                 <Icon name={bonus.icon as any} size={28} className="text-black" />
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-bold mb-1">{bonus.title}</h3>
-                <p className="text-2xl gold-text font-bold mb-2">{bonus.amount}</p>
+                <p className="text-2xl gold-text font-bold mb-2">+{bonus.amount} ₽</p>
                 <p className="text-sm text-muted-foreground mb-4">{bonus.desc}</p>
-                <Button className="gold-gradient text-black font-semibold">Получить</Button>
+                <Button 
+                  onClick={() => claimBonus(bonus.id, bonus.amount)}
+                  disabled={claimed[bonus.id]}
+                  className="gold-gradient text-black font-semibold"
+                >
+                  {claimed[bonus.id] ? 'Получено' : 'Получить'}
+                </Button>
               </div>
             </div>
           </Card>
