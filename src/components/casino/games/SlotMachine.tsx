@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { soundManager } from '@/utils/sounds';
 
 type SlotMachineProps = {
   name: string;
@@ -31,6 +32,7 @@ export function SlotMachine({ name, icon, symbols, onClose, balance, onBalanceCh
       return;
     }
 
+    soundManager.play('spin');
     setIsSpinning(true);
     onBalanceChange(-bet);
     setLastWin(0);
@@ -59,13 +61,16 @@ export function SlotMachine({ name, icon, symbols, onClose, balance, onBalanceCh
         const winAmount = bet * 10;
         setLastWin(winAmount);
         onBalanceChange(winAmount);
+        soundManager.play('win');
         toast.success(`Выигрыш ${winAmount} ₽!`);
       } else if (finalReels[0] === finalReels[1] || finalReels[1] === finalReels[2]) {
         const winAmount = bet * 2;
         setLastWin(winAmount);
         onBalanceChange(winAmount);
+        soundManager.play('win');
         toast.success(`Выигрыш ${winAmount} ₽!`);
       } else {
+        soundManager.play('lose');
         toast.error('Не повезло. Попробуйте ещё!');
       }
     }, spinDuration);
@@ -84,7 +89,10 @@ export function SlotMachine({ name, icon, symbols, onClose, balance, onBalanceCh
               {reels.map((symbol, idx) => (
                 <div 
                   key={idx}
-                  className={`aspect-square bg-[#0a0a0a] rounded-lg flex items-center justify-center text-7xl border-2 border-primary/30 ${isSpinning ? 'animate-pulse' : ''}`}
+                  className={`aspect-square bg-[#0a0a0a] rounded-lg flex items-center justify-center text-7xl border-2 border-primary/30 transition-all duration-300 ${isSpinning ? 'animate-spin-slow scale-110' : 'scale-100'}`}
+                  style={{
+                    animation: isSpinning ? `spin-reel-${idx} 0.1s linear infinite` : 'none'
+                  }}
                 >
                   {symbol}
                 </div>

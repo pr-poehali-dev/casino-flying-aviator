@@ -2,10 +2,13 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { MinesGame } from '../games/MinesGame';
 import { TowerGame } from '../games/TowerGame';
 import { CasesGame } from '../games/CasesGame';
 import { toast } from 'sonner';
+import { soundManager } from '@/utils/sounds';
 
 export function MinecraftSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
   const [activeGame, setActiveGame] = useState<'mines' | 'tower' | 'cases' | null>(null);
@@ -75,11 +78,19 @@ export function MinecraftSection({ balance, onBalanceChange }: { balance: number
 export function SportSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
   const [betAmount, setBetAmount] = useState('10');
   const [activeBet, setActiveBet] = useState<{ match: number; outcome: string; odds: number } | null>(null);
+  const [sportFilter, setSportFilter] = useState<string>('all');
 
-  const matches = [
-    { team1: 'Спартак', team2: 'ЦСКА', odds1: 2.1, oddsX: 3.2, odds2: 2.8, sport: '⚽' },
-    { team1: 'Лейкерс', team2: 'Уориорз', odds1: 1.8, oddsX: null, odds2: 1.9, sport: '🏀' }
+  const allMatches = [
+    { team1: 'Спартак', team2: 'ЦСКА', odds1: 2.1, oddsX: 3.2, odds2: 2.8, sport: 'football', icon: '⚽', league: 'РПЛ' },
+    { team1: 'Зенит', team2: 'Динамо', odds1: 1.9, oddsX: 3.0, odds2: 3.5, sport: 'football', icon: '⚽', league: 'РПЛ' },
+    { team1: 'Реал Мадрид', team2: 'Барселона', odds1: 2.3, oddsX: 3.1, odds2: 2.6, sport: 'football', icon: '⚽', league: 'Ла Лига' },
+    { team1: 'СКА', team2: 'Спартак', odds1: 1.7, oddsX: 3.8, odds2: 4.2, sport: 'hockey', icon: '🏒', league: 'КХЛ' },
+    { team1: 'Авангард', team2: 'Динамо', odds1: 2.0, oddsX: 3.5, odds2: 3.0, sport: 'hockey', icon: '🏒', league: 'КХЛ' },
+    { team1: 'Лейкерс', team2: 'Уориорз', odds1: 1.8, oddsX: null, odds2: 1.9, sport: 'basketball', icon: '🏀', league: 'NBA' },
+    { team1: 'Майами', team2: 'Бостон', odds1: 2.2, oddsX: null, odds2: 1.6, sport: 'basketball', icon: '🏀', league: 'NBA' }
   ];
+
+  const matches = sportFilter === 'all' ? allMatches : allMatches.filter(m => m.sport === sportFilter);
 
   const placeBet = (matchIdx: number, outcome: string, odds: number) => {
     const bet = parseInt(betAmount);
@@ -92,17 +103,20 @@ export function SportSection({ balance, onBalanceChange }: { balance: number; on
       return;
     }
 
+    soundManager.play('click');
     onBalanceChange(-bet);
     setActiveBet({ match: matchIdx, outcome, odds });
 
     setTimeout(() => {
       const won = Math.random() > 0.5;
       if (won) {
+        soundManager.play('win');
         const winAmount = Math.floor(bet * odds);
         onBalanceChange(winAmount);
-        toast.success(`Ставка сыграла! Выигрыш ${winAmount} ₽`);
+        toast.success(`✅ Ставка сыграла! Выигрыш ${winAmount} ₽`);
       } else {
-        toast.error('Ставка не сыграла');
+        soundManager.play('lose');
+        toast.error('❌ Ставка не сыграла');
       }
       setActiveBet(null);
     }, 3000);
@@ -110,7 +124,20 @@ export function SportSection({ balance, onBalanceChange }: { balance: number; on
 
   return (
     <div className="space-y-6 mb-32">
-      <h2 className="text-3xl font-bold gold-text">Ставки на спорт</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold gold-text">Ставки на спорт</h2>
+        <Select value={sportFilter} onValueChange={setSportFilter}>
+          <SelectTrigger className="w-48 bg-[#1a1a1a] border-primary/30">
+            <SelectValue placeholder="Все виды спорта" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#0a0a0a] border-primary/30">
+            <SelectItem value="all">Все виды</SelectItem>
+            <SelectItem value="football">⚽ Футбол</SelectItem>
+            <SelectItem value="hockey">🏒 Хоккей</SelectItem>
+            <SelectItem value="basketball">🏀 Баскетбол</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       
       <Card className="bg-[#1a1a1a] border-primary/20 p-4">
         <div className="flex items-center justify-between mb-4">
@@ -131,12 +158,13 @@ export function SportSection({ balance, onBalanceChange }: { balance: number; on
 
       <div className="space-y-4">
         {matches.map((match, idx) => (
-          <Card key={idx} className="bg-[#1a1a1a] border-primary/20 p-6">
+          <Card key={idx} className="bg-[#1a1a1a] border-primary/20 p-6 hover:border-primary/50 transition-all">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{match.sport}</span>
+                <span className="text-3xl">{match.icon}</span>
                 <div>
-                  <p className="font-semibold">{match.team1} vs {match.team2}</p>
+                  <p className="text-xs text-primary font-semibold">{match.league}</p>
+                  <p className="font-bold text-lg">{match.team1} vs {match.team2}</p>
                   <p className="text-xs text-muted-foreground">Через 2 часа</p>
                 </div>
               </div>

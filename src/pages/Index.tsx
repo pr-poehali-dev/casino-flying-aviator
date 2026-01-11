@@ -4,6 +4,7 @@ import { User, WinRecord } from '@/components/casino/types';
 import { Header } from '@/components/casino/Header';
 import { WinsFooter } from '@/components/casino/WinsFooter';
 import { AuthDialog } from '@/components/casino/AuthDialog';
+import { AviaMasterGame } from '@/components/casino/games/AviaMasterGame';
 import { 
   HomeSection, 
   SlotsSection, 
@@ -38,7 +39,11 @@ export default function Index() {
       id: isAdmin ? 'admin' : Math.random().toString(),
       username,
       balance: 5000,
-      isAdmin: isAdmin || false
+      isAdmin: isAdmin || false,
+      claimedBonuses: [],
+      totalWagered: 0,
+      vipLevel: 1,
+      registeredAt: new Date().toISOString()
     });
 
     if (isAdmin) {
@@ -52,7 +57,13 @@ export default function Index() {
 
   const handleBalanceChange = (amount: number) => {
     if (currentUser) {
-      setCurrentUser({ ...currentUser, balance: currentUser.balance + amount });
+      const newBalance = currentUser.balance + amount;
+      const wagerIncrease = amount < 0 ? Math.abs(amount) : 0;
+      setCurrentUser({ 
+        ...currentUser, 
+        balance: newBalance,
+        totalWagered: currentUser.totalWagered + wagerIncrease
+      });
     }
   };
 
@@ -61,8 +72,14 @@ export default function Index() {
     toast.success(`Баланс пополнен на ${amount} ₽`);
   };
 
-  const handleClaimBonus = (amount: number) => {
-    handleBalanceChange(amount);
+  const handleClaimBonus = (bonusId: string, amount: number) => {
+    if (currentUser) {
+      setCurrentUser({
+        ...currentUser,
+        balance: currentUser.balance + amount,
+        claimedBonuses: [...currentUser.claimedBonuses, bonusId]
+      });
+    }
   };
 
   return (
@@ -90,6 +107,13 @@ export default function Index() {
             onBalanceChange={handleBalanceChange}
           />
         )}
+        {activeSection === 'aviamaster' && currentUser && (
+          <AviaMasterGame 
+            balance={currentUser.balance} 
+            onBalanceChange={handleBalanceChange}
+            onClose={() => setActiveSection('home')}
+          />
+        )}
         {activeSection === 'minecraft' && currentUser && (
           <MinecraftSection 
             balance={currentUser.balance} 
@@ -103,7 +127,7 @@ export default function Index() {
           />
         )}
         {activeSection === 'bonuses' && currentUser && (
-          <BonusesSection onClaimBonus={handleClaimBonus} />
+          <BonusesSection user={currentUser} onClaimBonus={handleClaimBonus} />
         )}
         {activeSection === 'support' && <SupportSection />}
         {activeSection === 'profile' && currentUser && (
@@ -111,7 +135,7 @@ export default function Index() {
         )}
         {activeSection === 'admin' && currentUser?.isAdmin && <AdminPanel />}
 
-        {(activeSection !== 'home' && activeSection !== 'support' && !currentUser) && (
+        {(activeSection !== 'home' && activeSection !== 'support' && activeSection !== 'aviamaster' && !currentUser) && (
           <div className="text-center py-20">
             <h2 className="text-2xl font-bold gold-text mb-4">Войдите, чтобы играть</h2>
             <button 

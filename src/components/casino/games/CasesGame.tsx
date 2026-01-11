@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { soundManager } from '@/utils/sounds';
 
 type CaseItem = {
   name: string;
@@ -38,6 +39,7 @@ export function CasesGame({ onClose, balance, onBalanceChange }: { onClose: () =
       return;
     }
 
+    soundManager.play('spin');
     onBalanceChange(-casePrice);
     setIsOpening(true);
     setWonItem(null);
@@ -63,14 +65,17 @@ export function CasesGame({ onClose, balance, onBalanceChange }: { onClose: () =
       
       const winAmount = Math.floor(casePrice * item.multiplier);
       if (winAmount > casePrice) {
+        soundManager.play('win');
         onBalanceChange(winAmount);
-        toast.success(`Выигрыш ${winAmount} ₽! (${item.name})`);
+        toast.success(`🎉 Выигрыш ${winAmount} ₽! (${item.name})`);
       } else if (winAmount === casePrice) {
+        soundManager.play('click');
         onBalanceChange(winAmount);
-        toast.info(`Возврат ставки! (${item.name})`);
+        toast.info(`🔁 Возврат ставки! (${item.name})`);
       } else {
+        soundManager.play('lose');
         onBalanceChange(winAmount);
-        toast.error(`Выпало: ${item.name}`);
+        toast.error(`😔 Выпало: ${item.name}`);
       }
     }, 2000);
   };
@@ -90,7 +95,7 @@ export function CasesGame({ onClose, balance, onBalanceChange }: { onClose: () =
 
           <Card className="bg-[#1a1a1a] border-primary/20 p-8">
             <div className="text-center mb-6">
-              <div className={`text-9xl mb-4 ${isOpening ? 'animate-bounce' : ''}`}>📦</div>
+              <div className={`text-9xl mb-4 transition-transform duration-500 ${isOpening ? 'animate-bounce scale-110' : 'scale-100'}`}>📦</div>
               {wonItem && !isOpening && (
                 <div className="space-y-4 animate-scale-in">
                   <div className="text-8xl">{wonItem.icon}</div>

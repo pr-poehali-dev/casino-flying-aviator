@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { soundManager } from '@/utils/sounds';
 
 type TowerCell = {
   isWinning: boolean;
@@ -31,6 +32,7 @@ export function TowerGame({ onClose, balance, onBalanceChange }: { onClose: () =
       return;
     }
 
+    soundManager.play('click');
     onBalanceChange(-bet);
     setCurrentBet(bet);
     setMultiplier(1.5);
@@ -57,32 +59,36 @@ export function TowerGame({ onClose, balance, onBalanceChange }: { onClose: () =
     setTower(newTower);
 
     if (newTower[levelIdx][cellIdx].isWinning) {
+      soundManager.play('click');
       const newLevel = currentLevel + 1;
       const newMultiplier = multiplier * 1.4;
       setMultiplier(newMultiplier);
 
       if (newLevel >= levels) {
+        soundManager.play('win');
         const winAmount = Math.floor(currentBet * newMultiplier);
         onBalanceChange(winAmount);
         setGameStarted(false);
-        toast.success(`Вы прошли всю башню! Выигрыш ${winAmount} ₽!`);
+        toast.success(`🏆 Вы прошли всю башню! Выигрыш ${winAmount} ₽!`);
       } else {
         setCurrentLevel(newLevel);
-        toast.success(`Уровень пройден! Множитель: x${newMultiplier.toFixed(2)}`);
+        toast.success(`✅ Уровень пройден! Множитель: x${newMultiplier.toFixed(2)}`);
       }
     } else {
+      soundManager.play('crash');
       newTower[levelIdx].forEach(cell => cell.revealed = true);
       setTower(newTower);
       setGameStarted(false);
-      toast.error(`Неверный блок! Вы проиграли ${currentBet} ₽`);
+      toast.error(`❌ Неверный блок! Вы проиграли ${currentBet} ₽`);
     }
   };
 
   const cashout = () => {
+    soundManager.play('win');
     const winAmount = Math.floor(currentBet * multiplier);
     onBalanceChange(winAmount);
     setGameStarted(false);
-    toast.success(`Выигрыш ${winAmount} ₽!`);
+    toast.success(`✅ Выигрыш ${winAmount} ₽!`);
   };
 
   return (
@@ -160,7 +166,7 @@ export function TowerGame({ onClose, balance, onBalanceChange }: { onClose: () =
                             key={cellIdx}
                             onClick={() => selectCell(levelIdx, cellIdx)}
                             disabled={!isCurrentLevel || cell.revealed}
-                            className={`h-12 rounded-lg flex items-center justify-center text-xl font-bold transition-all ${
+                            className={`h-12 rounded-lg flex items-center justify-center text-xl font-bold transition-all duration-300 transform ${
                               cell.revealed
                                 ? cell.isWinning
                                   ? 'bg-green-900/50 border-2 border-green-500'

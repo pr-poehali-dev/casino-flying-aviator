@@ -3,6 +3,10 @@ export type User = {
   username: string;
   balance: number;
   isAdmin: boolean;
+  claimedBonuses: string[];
+  totalWagered: number;
+  vipLevel: number;
+  registeredAt: string;
 };
 
 export type WinRecord = {

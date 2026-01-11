@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { soundManager } from '@/utils/sounds';
 
 type Cell = {
   revealed: boolean;
@@ -33,6 +34,7 @@ export function MinesGame({ onClose, balance, onBalanceChange }: { onClose: () =
       return;
     }
 
+    soundManager.play('click');
     onBalanceChange(-bet);
     setCurrentBet(bet);
     setMultiplier(1.0);
@@ -70,24 +72,27 @@ export function MinesGame({ onClose, balance, onBalanceChange }: { onClose: () =
     setGrid(newGrid);
 
     if (newGrid[index].isBomb) {
+      soundManager.play('crash');
       newGrid.forEach(cell => cell.revealed = true);
       setGrid(newGrid);
       setGameStarted(false);
-      toast.error(`Бомба! Вы проиграли ${currentBet} ₽`);
+      toast.error(`💣 Бомба! Вы проиграли ${currentBet} ₽`);
     } else {
+      soundManager.play('click');
       const newRevealedCount = revealedCount + 1;
       setRevealedCount(newRevealedCount);
       const newMultiplier = 1 + (newRevealedCount * 0.3);
       setMultiplier(newMultiplier);
-      toast.success(`Алмаз! Множитель: x${newMultiplier.toFixed(2)}`);
+      toast.success(`💎 Алмаз! Множитель: x${newMultiplier.toFixed(2)}`);
     }
   };
 
   const cashout = () => {
+    soundManager.play('win');
     const winAmount = Math.floor(currentBet * multiplier);
     onBalanceChange(winAmount);
     setGameStarted(false);
-    toast.success(`Выигрыш ${winAmount} ₽!`);
+    toast.success(`✅ Выигрыш ${winAmount} ₽!`);
     
     const newGrid = [...grid];
     newGrid.forEach(cell => cell.revealed = true);
@@ -162,7 +167,7 @@ export function MinesGame({ onClose, balance, onBalanceChange }: { onClose: () =
                       key={idx}
                       onClick={() => revealCell(idx)}
                       disabled={cell.revealed}
-                      className={`aspect-square rounded-lg flex items-center justify-center text-3xl font-bold transition-all ${
+                      className={`aspect-square rounded-lg flex items-center justify-center text-3xl font-bold transition-all duration-300 transform ${
                         cell.revealed 
                           ? cell.isBomb 
                             ? 'bg-red-900/50 border-2 border-red-500' 

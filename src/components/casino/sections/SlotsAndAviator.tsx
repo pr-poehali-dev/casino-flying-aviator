@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SlotMachine } from '../games/SlotMachine';
 import { toast } from 'sonner';
+import { soundManager } from '@/utils/sounds';
 
 export function SlotsSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
   const [activeSlot, setActiveSlot] = useState<{ name: string; icon: string; symbols: string[] } | null>(null);
@@ -12,13 +13,16 @@ export function SlotsSection({ balance, onBalanceChange }: { balance: number; on
   const slots = [
     { name: 'Фрукты', icon: '🍒', multiplier: 'x500', popularity: 98, symbols: ['🍒', '🍋', '🍊', '🍇', '🍉', '🍓'] },
     { name: 'Рыбка', icon: '🐠', multiplier: 'x750', popularity: 95, symbols: ['🐠', '🐟', '🐡', '🦈', '🐙', '🦑'] },
-    { name: 'Собачка', icon: '🐕', multiplier: 'x1000', popularity: 92, symbols: ['🐕', '🐶', '🦴', '🎾', '🐾', '🏠'] }
+    { name: 'Собачка', icon: '🐕', multiplier: 'x1000', popularity: 92, symbols: ['🐕', '🐶', '🦴', '🎾', '🐾', '🏠'] },
+    { name: 'Сокровища', icon: '💎', multiplier: 'x2000', popularity: 90, symbols: ['💎', '👑', '💰', '🏆', '💍', '🔱'] },
+    { name: 'Космос', icon: '🚀', multiplier: 'x1500', popularity: 93, symbols: ['🚀', '🌟', '🌙', '🪐', '☄️', '🛸'] },
+    { name: 'Драконы', icon: '🐉', multiplier: 'x3000', popularity: 88, symbols: ['🐉', '🔥', '⚡', '🗡️', '🛡️', '🏔️'] }
   ];
 
   return (
     <div className="space-y-6 mb-32">
       <h2 className="text-3xl font-bold gold-text">Слоты</h2>
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-6">
         {slots.map(slot => (
           <Card key={slot.name} className="bg-[#1a1a1a] border-primary/20 overflow-hidden group cursor-pointer hover:border-primary transition-all">
             <div className="aspect-video bg-gradient-to-br from-primary/20 to-transparent flex items-center justify-center text-8xl group-hover:scale-110 transition-transform">
@@ -82,9 +86,11 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
             return prev;
           }
 
-          if (next > 2 && Math.random() > 0.98) {
+          const crashChance = next < 1.5 ? 0.005 : next < 2 ? 0.01 : next < 3 ? 0.02 : next < 5 ? 0.035 : 0.05;
+          if (Math.random() < crashChance) {
             setIsFlying(false);
-            toast.error(`Самолёт упал на x${next.toFixed(2)}! Вы проиграли ${currentBet} ₽`);
+            soundManager.play('crash');
+            toast.error(`💥 Самолёт упал на x${next.toFixed(2)}! Вы проиграли ${currentBet} ₽`);
             return 1.00;
           }
           return next;
@@ -105,11 +111,12 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
       return;
     }
 
+    soundManager.play('click');
     onBalanceChange(-bet);
     setCurrentBet(bet);
     setMultiplier(1.00);
     setIsFlying(true);
-    toast.success('Полёт начался!');
+    toast.success('🚀 Полёт начался!');
   };
 
   const handleCashout = (mult?: number) => {
@@ -118,7 +125,8 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
     onBalanceChange(winAmount);
     setIsFlying(false);
     setMultiplier(1.00);
-    toast.success(`Выигрыш ${winAmount} ₽ (x${finalMult.toFixed(2)})`);
+    soundManager.play('win');
+    toast.success(`✅ Выигрыш ${winAmount} ₽ (x${finalMult.toFixed(2)})`);
   };
 
   return (
@@ -127,8 +135,8 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
       <Card className="bg-[#1a1a1a] border-primary/20 p-8">
         <div className="relative h-96 bg-gradient-to-b from-blue-900/20 to-transparent rounded-xl flex items-center justify-center mb-6">
           <div className="text-center">
-            <div className={`text-8xl mb-4 ${isFlying ? 'animate-bounce' : ''}`}>✈️</div>
-            <div className="text-6xl font-bold gold-text">{multiplier.toFixed(2)}x</div>
+            <div className={`text-8xl mb-4 transition-all duration-300 ${isFlying ? 'animate-bounce scale-110' : 'scale-100'}`}>✈️</div>
+            <div className="text-6xl font-bold gold-text transition-all duration-100">{multiplier.toFixed(2)}x</div>
             {isFlying && (
               <p className="text-sm text-muted-foreground mt-2">
                 Возможный выигрыш: {Math.floor(currentBet * multiplier)} ₽

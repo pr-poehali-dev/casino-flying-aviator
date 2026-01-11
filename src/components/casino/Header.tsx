@@ -56,7 +56,7 @@ export function Header({ currentUser, onlineCount, activeSection, onLogin, onAdm
         </div>
 
         <nav className="flex gap-2 mt-4 overflow-x-auto pb-2">
-          {['home', 'slots', 'aviator', 'minecraft', 'sport', 'bonuses', 'support'].map(section => (
+          {['home', 'slots', 'aviator', 'aviamaster', 'minecraft', 'sport', 'bonuses', 'support'].map(section => (
             <Button
               key={section}
               onClick={() => onNavigate(section)}
@@ -68,6 +68,7 @@ export function Header({ currentUser, onlineCount, activeSection, onLogin, onAdm
                   section === 'home' ? 'Home' :
                   section === 'slots' ? 'Cherry' :
                   section === 'aviator' ? 'Plane' :
+                  section === 'aviamaster' ? 'Rocket' :
                   section === 'minecraft' ? 'Box' :
                   section === 'sport' ? 'Trophy' :
                   section === 'bonuses' ? 'Gift' :
@@ -79,6 +80,7 @@ export function Header({ currentUser, onlineCount, activeSection, onLogin, onAdm
                 section === 'home' ? 'Главная' :
                 section === 'slots' ? 'Слоты' :
                 section === 'aviator' ? 'Авиатор' :
+                section === 'aviamaster' ? 'AviaMaster' :
                 section === 'minecraft' ? 'Майнкрафт' :
                 section === 'sport' ? 'Спорт' :
                 section === 'bonuses' ? 'Бонусы' :
