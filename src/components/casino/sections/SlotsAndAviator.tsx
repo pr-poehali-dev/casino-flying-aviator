@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { SlotMachine } from '../games/SlotMachine';
+import { VIPSlotMachine } from '../games/VIPSlotMachine';
 import { toast } from 'sonner';
 import { soundManager } from '@/utils/sounds';
 
 export function SlotsSection({ balance, onBalanceChange }: { balance: number; onBalanceChange: (amount: number) => void }) {
-  const [activeSlot, setActiveSlot] = useState<{ name: string; icon: string; symbols: string[] } | null>(null);
+  const [activeSlot, setActiveSlot] = useState<{ name: string; icon: string; symbols: string[]; isVIP?: boolean } | null>(null);
 
   const slots = [
     { name: 'Фрукты', icon: '🍒', multiplier: 'x500', popularity: 98, symbols: ['🍒', '🍋', '🍊', '🍇', '🍉', '🍓'] },
@@ -16,7 +18,8 @@ export function SlotsSection({ balance, onBalanceChange }: { balance: number; on
     { name: 'Собачка', icon: '🐕', multiplier: 'x1000', popularity: 92, symbols: ['🐕', '🐶', '🦴', '🎾', '🐾', '🏠'] },
     { name: 'Сокровища', icon: '💎', multiplier: 'x2000', popularity: 90, symbols: ['💎', '👑', '💰', '🏆', '💍', '🔱'] },
     { name: 'Космос', icon: '🚀', multiplier: 'x1500', popularity: 93, symbols: ['🚀', '🌟', '🌙', '🪐', '☄️', '🛸'] },
-    { name: 'Драконы', icon: '🐉', multiplier: 'x3000', popularity: 88, symbols: ['🐉', '🔥', '⚡', '🗡️', '🛡️', '🏔️'] }
+    { name: 'Драконы', icon: '🐉', multiplier: 'x3000', popularity: 88, symbols: ['🐉', '🔥', '⚡', '🗡️', '🛡️', '🏔️'] },
+    { name: 'Фрукты VIP', icon: '👑', multiplier: 'JACKPOT', popularity: 99, symbols: ['🍒', '🍋', '🍊', '🍇', '🍉'], isVIP: true }
   ];
 
   return (
@@ -24,9 +27,14 @@ export function SlotsSection({ balance, onBalanceChange }: { balance: number; on
       <h2 className="text-3xl font-bold gold-text">Слоты</h2>
       <div className="grid md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-6">
         {slots.map(slot => (
-          <Card key={slot.name} className="bg-[#1a1a1a] border-primary/20 overflow-hidden group cursor-pointer hover:border-primary transition-all">
-            <div className="aspect-video bg-gradient-to-br from-primary/20 to-transparent flex items-center justify-center text-8xl group-hover:scale-110 transition-transform">
+          <Card key={slot.name} className={`bg-[#1a1a1a] overflow-hidden group cursor-pointer hover:border-primary transition-all ${
+            slot.isVIP ? 'border-2 border-primary bg-gradient-to-br from-primary/10 to-transparent' : 'border-primary/20'
+          }`}>
+            <div className={`aspect-video flex items-center justify-center text-8xl group-hover:scale-110 transition-transform ${
+              slot.isVIP ? 'bg-gradient-to-br from-primary/30 to-primary/10 animate-pulse-slow' : 'bg-gradient-to-br from-primary/20 to-transparent'
+            }`}>
               {slot.icon}
+              {slot.isVIP && <span className="ml-2 text-5xl">🎉</span>}
             </div>
             <div className="p-6">
               <div className="flex items-center justify-between mb-3">
@@ -43,21 +51,31 @@ export function SlotsSection({ balance, onBalanceChange }: { balance: number; on
                 </div>
               </div>
               <Button 
-                onClick={() => setActiveSlot({ name: slot.name, icon: slot.icon, symbols: slot.symbols })}
-                className="w-full gold-gradient text-black font-bold"
+                onClick={() => setActiveSlot({ name: slot.name, icon: slot.icon, symbols: slot.symbols, isVIP: slot.isVIP })}
+                className={`w-full font-bold ${
+                  slot.isVIP ? 'gold-gradient text-black text-lg' : 'gold-gradient text-black'
+                }`}
               >
-                Играть
+                {slot.isVIP ? '👑 Играть VIP' : 'Играть'}
               </Button>
             </div>
           </Card>
         ))}
       </div>
 
-      {activeSlot && (
+      {activeSlot && !activeSlot.isVIP && (
         <SlotMachine 
           name={activeSlot.name}
           icon={activeSlot.icon}
           symbols={activeSlot.symbols}
+          balance={balance}
+          onBalanceChange={onBalanceChange}
+          onClose={() => setActiveSlot(null)}
+        />
+      )}
+
+      {activeSlot && activeSlot.isVIP && (
+        <VIPSlotMachine 
           balance={balance}
           onBalanceChange={onBalanceChange}
           onClose={() => setActiveSlot(null)}
@@ -73,6 +91,17 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
   const [betAmount, setBetAmount] = useState('10');
   const [autoExit, setAutoExit] = useState('2.00');
   const [currentBet, setCurrentBet] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [autoPlayCount, setAutoPlayCount] = useState(0);
+  const [autoPlayRounds, setAutoPlayRounds] = useState('10');
+
+  useEffect(() => {
+    if (autoPlay && !isFlying && autoPlayCount > 0) {
+      setTimeout(() => {
+        startFlight(true);
+      }, 2000);
+    }
+  }, [isFlying, autoPlay, autoPlayCount]);
 
   useEffect(() => {
     if (isFlying) {
@@ -90,7 +119,15 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
           if (Math.random() < crashChance) {
             setIsFlying(false);
             soundManager.play('crash');
-            toast.error(`💥 Самолёт упал на x${next.toFixed(2)}! Вы проиграли ${currentBet} ₽`);
+            if (autoPlay) {
+              setAutoPlayCount(prev => prev - 1);
+              if (autoPlayCount <= 1) {
+                setAutoPlay(false);
+                toast.error(`💥 Авто-игра завершена`);
+              }
+            } else {
+              toast.error(`💥 Самолёт упал на x${next.toFixed(2)}! Вы проиграли ${currentBet} ₽`);
+            }
             return 1.00;
           }
           return next;
@@ -100,14 +137,16 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
     }
   }, [isFlying, autoExit, currentBet]);
 
-  const startFlight = () => {
+  const startFlight = (isAuto = false) => {
     const bet = parseInt(betAmount);
     if (!bet || bet <= 0) {
       toast.error('Укажите ставку');
+      if (isAuto) setAutoPlay(false);
       return;
     }
     if (bet > balance) {
       toast.error('Недостаточно средств');
+      if (isAuto) setAutoPlay(false);
       return;
     }
 
@@ -116,7 +155,25 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
     setCurrentBet(bet);
     setMultiplier(1.00);
     setIsFlying(true);
-    toast.success('🚀 Полёт начался!');
+    if (!isAuto) toast.success('🚀 Полёт начался!');
+  };
+
+  const startAutoPlay = () => {
+    const rounds = parseInt(autoPlayRounds);
+    if (!rounds || rounds <= 0) {
+      toast.error('Укажите количество раундов');
+      return;
+    }
+    setAutoPlay(true);
+    setAutoPlayCount(rounds);
+    toast.success(`🤖 Авто-игра начата: ${rounds} раундов`);
+    startFlight(true);
+  };
+
+  const stopAutoPlay = () => {
+    setAutoPlay(false);
+    setAutoPlayCount(0);
+    toast.info('🛑 Авто-игра остановлена');
   };
 
   const handleCashout = (mult?: number) => {
@@ -126,7 +183,16 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
     setIsFlying(false);
     setMultiplier(1.00);
     soundManager.play('win');
-    toast.success(`✅ Выигрыш ${winAmount} ₽ (x${finalMult.toFixed(2)})`);
+    
+    if (autoPlay) {
+      setAutoPlayCount(prev => prev - 1);
+      if (autoPlayCount <= 1) {
+        setAutoPlay(false);
+        toast.success(`✅ Авто-игра завершена! Итоговый выигрыш: ${winAmount} ₽`);
+      }
+    } else {
+      toast.success(`✅ Выигрыш ${winAmount} ₽ (x${finalMult.toFixed(2)})`);
+    }
   };
 
   return (
@@ -151,7 +217,7 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
             <span className="text-xl font-bold gold-text">{balance.toLocaleString()} ₽</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="text-sm text-muted-foreground mb-2 block">Ставка</label>
               <Input 
@@ -160,7 +226,7 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
                 onChange={(e) => setBetAmount(e.target.value)}
                 placeholder="100" 
                 className="bg-[#0a0a0a] border-primary/30"
-                disabled={isFlying}
+                disabled={isFlying || autoPlay}
               />
             </div>
             <div>
@@ -171,26 +237,72 @@ export function AviatorSection({ balance, onBalanceChange }: { balance: number; 
                 onChange={(e) => setAutoExit(e.target.value)}
                 placeholder="2.00" 
                 className="bg-[#0a0a0a] border-primary/30"
-                disabled={isFlying}
+                disabled={isFlying || autoPlay}
+              />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-2 block">🤖 Раундов</label>
+              <Input 
+                type="number" 
+                value={autoPlayRounds}
+                onChange={(e) => setAutoPlayRounds(e.target.value)}
+                placeholder="10" 
+                className="bg-[#0a0a0a] border-primary/30"
+                disabled={isFlying || autoPlay}
               />
             </div>
           </div>
 
-          {!isFlying ? (
-            <Button 
-              onClick={startFlight}
-              className="w-full gold-gradient text-black font-bold text-lg py-6"
-            >
-              Начать полёт
-            </Button>
-          ) : (
-            <Button 
-              onClick={() => handleCashout()}
-              className="w-full gold-gradient text-black font-bold text-lg py-6"
-            >
-              Забрать {Math.floor(currentBet * multiplier)} ₽
-            </Button>
+          {autoPlay && (
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  <span className="text-sm font-semibold">Авто-игра активна</span>
+                </div>
+                <span className="text-sm gold-text font-bold">Осталось: {autoPlayCount} раундов</span>
+              </div>
+            </div>
           )}
+
+          <div className="grid grid-cols-2 gap-4">
+            {!isFlying && !autoPlay && (
+              <>
+                <Button 
+                  onClick={() => startFlight()}
+                  className="w-full gold-gradient text-black font-bold text-lg py-6"
+                >
+                  ✈️ Начать полёт
+                </Button>
+                <Button 
+                  onClick={startAutoPlay}
+                  variant="outline"
+                  className="w-full border-primary/30 font-bold text-lg py-6"
+                >
+                  🤖 Авто-игра
+                </Button>
+              </>
+            )}
+
+            {autoPlay && (
+              <Button 
+                onClick={stopAutoPlay}
+                variant="destructive"
+                className="col-span-2 w-full font-bold text-lg py-6"
+              >
+                🛑 Остановить авто-игру
+              </Button>
+            )}
+
+            {isFlying && !autoPlay && (
+              <Button 
+                onClick={() => handleCashout()}
+                className="col-span-2 w-full gold-gradient text-black font-bold text-lg py-6"
+              >
+                💰 Забрать {Math.floor(currentBet * multiplier)} ₽
+              </Button>
+            )}
+          </div>
         </div>
       </Card>
     </div>
